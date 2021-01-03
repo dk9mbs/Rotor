@@ -1,17 +1,19 @@
 import json
+import sys
+import network
+
 try:
     import usocket as socket
 except:
     import socket
 
-try:
-    import network
-except:
-    print("network not found!")
 
 f=open('config.json')
 cfg=json.loads(f.read())
 
+#
+# WLAN functions
+#
 def do_connect(essid, password):
     sta_if = network.WLAN(network.STA_IF)
     ap_if = network.WLAN(network.AP_IF)
@@ -26,6 +28,131 @@ def do_connect(essid, password):
             pass
     print('network config:', sta_if.ifconfig())
 
+
+#
+# Shared Memory class for exchange objects and values between instances
+#
+class SharedMemory:
+    _azi_stepper=None
+
+    @classmethod
+    def create_azi_stepper(cls):
+        if cls._azi_stepper==None:
+            print("Create new azi stepper instance")
+            cls._azi_stepper=Stepper(step_size_deg=0.06, step_period_ms=4)
+            cls._azi_stepper.init()
+
+        return cls._azi_stepper
+
+#
+# Stepper 8255 class
+#
+import machine
+import utime
+
+class Stepper:
+    def __init__(self,**kwargs):
+        self._step_size_deg=float(kwargs['step_size_deg'])
+        self._step_period_ms=int(kwargs['step_period_ms'])
+        self._pin_step = machine.Pin(12, machine.Pin.OUT)
+        self._pin_dir = machine.Pin(13, machine.Pin.OUT)
+        self._pin_enabled = machine.Pin(14, machine.Pin.OUT)
+        self._pin_limit_switch = machine.Pin(5, machine.Pin.IN, machine.Pin.PULL_UP)
+        self._current_pos_deg=0
+
+    def get_pin_enabled(self):
+        return self._pin_enabled
+
+    def get_pin_step(self):
+        return self._pin_step
+
+    def get_pin_dir(self):
+        return self._pin_dir
+
+    def get_pin_limit_switch(self):
+        return self._pin_limit_switch
+
+    def get_current_pos_deg(self):
+        return self._current_pos_deg
+
+    def init(self):
+        self._pin_enabled.value(0)
+
+        self.init_dir(-1)
+        while not self.is_limit_switch_pressed():
+            self._pin_step.value(1)
+            utime.sleep_ms(2)
+            self._pin_step.value(0)
+            utime.sleep_ms(2)
+
+        self.init_dir(1)
+        while self.is_limit_switch_pressed():
+            self._pin_step.value(1)
+            utime.sleep_ms(2)
+            self._pin_step.value(0)
+            utime.sleep_ms(2)
+        print("Limit switch: %s" % self._pin_limit_switch.value())
+        self._pin_enabled.value(1)
+        self._current_pos_deg=0
+
+    #
+    # set the direction by the factor:
+    # 1=forward (for example: 270 -> 360)
+    # -1=back (for example: 360 -> 270)
+    #
+    def init_dir(self, factor):
+        if factor==1:
+            self._pin_dir.value(0)
+        elif factor==-1:
+            self._pin_dir.value(1)
+
+    #
+    # return True or False
+    #
+    def is_limit_switch_pressed(self):
+        if self.get_pin_limit_switch().value()==1:
+            return True
+        else:
+            return False
+
+    #
+    # Move the stepper to the target possition (deg)
+    #
+    def move(self, pos_deg):
+        if self._current_pos_deg<pos_deg:
+            factor=1
+            self.init_dir(factor)
+            delta_deg=pos_deg-self._current_pos_deg
+        else:
+            factor=-1
+            self.init_dir(factor)
+            delta_deg=self._current_pos_deg-pos_deg
+
+        # calculate the steps from degrees to steps
+        delta_steps=int(delta_deg/self._step_size_deg)
+        self._pin_enabled.value(0)
+
+        print("Moving stepper: %s" % delta_steps)
+        steps_moved=0
+        for x in range(0, delta_steps):
+            if self.is_limit_switch_pressed():
+                print("limit switch detected")
+                break
+
+            self._pin_step.value(1)
+            utime.sleep_ms(2)
+            self._pin_step.value(0)
+            utime.sleep_ms(2)
+            steps_moved+=1
+
+        self._pin_enabled.value(1)
+
+        print("Steps moved %s:" % steps_moved)
+        self._current_pos_deg=self._current_pos_deg+(steps_moved*self._step_size_deg*factor)
+
+#
+# http server classes
+#
 class WebRequest:
     def __init__(self, f):
         self._header=[]
@@ -41,54 +168,76 @@ class WebRequest:
             if not line or line == b'\r\n':
                 break
 
+    def get_request_url(self):
+        return self._request_url
 
 class WebServer:
     def __init__(self):
         pass
 
-    def run(self):
-        html='''<!DOCTYPE html>
-        <html>
-        <head><title>AG5ZL</title></head>
-        <center><h2>WebServer for turning LED on </h2></center>
-        <form>
-        <button name="LED" value='ON' type='submit'> LED ON </button>
-        <button name="LED" value='OFF' type='submit'> LED OFF </button>
-        <br><br>
-        '''
+    def run(self, callback):
+        html='''{"status": "ok"}\n'''
         s=socket.socket(socket.AF_INET,socket.SOCK_STREAM)
         s.setblocking(True)
         s.bind(('',80))
         s.listen(5)
 
         while True:
-            conn, addr = s.accept()
-            print('Got a connection from %s' % str(addr))
-            #request = conn.recv(1024)
+            status_code="200 OK"
 
-            f=conn.makefile('rwb', 0)
-            request=WebRequest(f)
+            try:
+                conn, addr = s.accept()
+                print('Got a connection from %s' % str(addr))
+                #request = conn.recv(1024)
 
-            print(request._request_url)
-            #read the first line with method request url and http version
-            #req = str(f.readline().decode()).split(" ")
-            #request_url=req[1]
-            #print("Request URL: %s" % request_url)
-            #read the header until end of header
-            #while True:
-            #    line = f.readline()
-            #    if not line or line == b'\r\n':
-            #        break
+                f=conn.makefile('rwb', 0)
+                request=WebRequest(f)
 
-            # send the response
+                print("Before callback")
+                callback(request)
+                print("After callback")
 
-            response = html
-            conn.send('HTTP/1.1 200 OK\n')
-            conn.send('Content-Type: text/html\n')
-            conn.send('Connection: close\n\n')
-            conn.sendall(response)
-            conn.close()
 
+            except Exception as e:
+                status_code="500 Error in callback"
+                sys.print_exception(e)
+
+
+            try:
+                response = html
+                conn.send("HTTP/1.1 %s\n" % status_code)
+                conn.send('Content-Type: text/json\n')
+                conn.send('Connection: close\n\n')
+                conn.sendall(response)
+                conn.close()
+            except Exception as e:
+                sys.print_exception(e)
+
+def move_stepper(request):
+    print("*** begin of move_stepper ***")
+
+    command=str(request.get_request_url().split("/")[3])
+    print("request_url %s" % request.get_request_url())
+
+    if command.upper()=='ROTOR' or command.upper()=='AZI':
+        print("start moving azi")
+        stepper=SharedMemory.create_azi_stepper()
+        print("Current position in degrees (before move) %s:" % stepper.get_current_pos_deg())
+        target_pos_deg=int(request.get_request_url().split("/")[4])
+        print("target position in degrees: %s" % target_pos_deg)
+        stepper.move(target_pos_deg)
+        print("Current position in degrees (after move) %s:" % stepper.get_current_pos_deg())
+    elif command.upper()=='INIT':
+        print("start init")
+        stepper=SharedMemory.create_azi_stepper()
+        print("Current position in degrees (before move) %s:" % stepper.get_current_pos_deg())
+        stepper.init()
+        print("Current position in degrees (after move) %s:" % stepper.get_current_pos_deg())
+
+
+    print("*** end move_stepper ***")
 
 do_connect(cfg['wlan']['essid'], cfg['wlan']['password'])
-WebServer().run()
+WebServer().run(move_stepper)
+
+
