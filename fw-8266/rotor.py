@@ -80,20 +80,21 @@ class Stepper:
 
         self.init_dir(-1)
         while not self.is_limit_switch_pressed():
-            self._pin_step.value(1)
-            utime.sleep_ms(2)
-            self._pin_step.value(0)
-            utime.sleep_ms(2)
+            self.do_step(1)
 
         self.init_dir(1)
         while self.is_limit_switch_pressed():
-            self._pin_step.value(1)
-            utime.sleep_ms(2)
-            self._pin_step.value(0)
-            utime.sleep_ms(2)
+            self.do_step(1)
+
         print("Limit switch: %s" % self._pin_limit_switch.value())
         self._pin_enabled.value(1)
         self._current_pos_deg=0
+
+    def do_step(self, wait_ms):
+        self._pin_step.value(1)
+        utime.sleep_ms(wait_ms)
+        self._pin_step.value(0)
+        utime.sleep_ms(wait_ms)
 
     #
     # set the direction by the factor:
@@ -139,10 +140,7 @@ class Stepper:
                 print("limit switch detected")
                 break
 
-            self._pin_step.value(1)
-            utime.sleep_ms(2)
-            self._pin_step.value(0)
-            utime.sleep_ms(2)
+            self.do_step(2)
             steps_moved+=1
 
         self._pin_enabled.value(1)
