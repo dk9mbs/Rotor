@@ -166,7 +166,7 @@ class WebRequest:
         try:
             line=str(self._f.readline().decode()).replace('\n','').replace('\r','')
             self._request_url=line
-            if line=='73' or line=='quit' or line=='bye':
+            if line=='73' or line=='quit' or line=='bye' or line =='':
                 return None
 
             return line
