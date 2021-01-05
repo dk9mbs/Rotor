@@ -149,82 +149,103 @@ class Stepper:
         self._current_pos_deg=self._current_pos_deg+(steps_moved*self._step_size_deg*factor)
 
 #
-# http server classes
+# socket server classes
 #
 class WebRequest:
     def __init__(self, f):
         self._header=[]
         self._method=""
         self._request_url=""
-        #read the first line with method request url and http version
-        req = str(f.readline().decode()).split(" ")
-        self._request_url=req[1]
-        #read the header until end of header
-        while True:
-            line = f.readline()
-            self._header.append(line)
-            if not line or line == b'\r\n':
-                break
+        self._f=f
+        #self._request_url=str(f.readline().decode()).replace('\n','').replace('\r','')
 
     def get_request_url(self):
         return self._request_url
+
+    def read_line(self):
+        try:
+            line=str(self._f.readline().decode()).replace('\n','').replace('\r','')
+            self._request_url=line
+            if line=='73' or line=='quit' or line=='bye':
+                return None
+
+            return line
+        except Exception as e:
+            print("73 de DK9MBS")
+            return None
+
+class WebResponse:
+    def __init__(self, conn):
+        self._conn=conn
+
+    def write_line(self, value):
+        self._conn.send(value+"\n")
 
 class WebServer:
     def __init__(self):
         pass
 
     def run(self, callback):
-        html='''{"status": "ok"}\n'''
         s=socket.socket(socket.AF_INET,socket.SOCK_STREAM)
         s.setblocking(True)
-        s.bind(('',80))
+        s.bind(('',4533))
         s.listen(5)
 
         while True:
-            status_code="200 OK"
-
             try:
                 conn, addr = s.accept()
+                response=WebResponse(conn)
                 print('Got a connection from %s' % str(addr))
                 #request = conn.recv(1024)
 
                 f=conn.makefile('rwb', 0)
                 request=WebRequest(f)
 
-                print("Before callback")
-                callback(request)
-                print("After callback")
+                while request.read_line()!=None:
+                    print("Before callback")
+                    callback(request, response)
+                    print("After callback")
 
 
             except Exception as e:
-                status_code="500 Error in callback"
                 sys.print_exception(e)
 
 
             try:
-                response = html
-                conn.send("HTTP/1.1 %s\n" % status_code)
-                conn.send('Content-Type: text/json\n')
-                conn.send('Connection: close\n\n')
-                conn.sendall(response)
+                #response=("RPRT %s\n" % status_code)
+                #conn.sendall(response)
                 conn.close()
             except Exception as e:
                 sys.print_exception(e)
 
-def move_stepper(request):
+def move_stepper(request, response):
     print("*** begin of move_stepper ***")
 
-    command=str(request.get_request_url().split("/")[3])
-    print("request_url %s" % request.get_request_url())
+    command=str(request.get_request_url().split(" ")[0])
+    print("request_url: %s detected command: %s" % (request.get_request_url(), command))
 
-    if command.upper()=='ROTOR' or command.upper()=='AZI':
+    if command=='P':
         print("start moving azi")
         stepper=SharedMemory.create_azi_stepper()
         print("Current position in degrees (before move) %s:" % stepper.get_current_pos_deg())
-        target_pos_deg=int(request.get_request_url().split("/")[4])
+        #target_pos_deg=int(request.get_request_url().split("/")[4])
+        tmp=(request.get_request_url().split(" ")[1]).replace(',','.')
+        target_pos_deg=float(tmp)
         print("target position in degrees: %s" % target_pos_deg)
         stepper.move(target_pos_deg)
         print("Current position in degrees (after move) %s:" % stepper.get_current_pos_deg())
+        response.write_line("RPRT 0")
+    elif command=='p':
+        #get the position
+        print("sending rotor  current position")
+        #response.write_line("get_pos:")
+        #response.write_line("Azimuth: 0.000000")
+        #response.write_line("Elevation: 0.000000")
+        response.write_line("0.000000")
+        response.write_line("0.000000")
+    elif command=='S':
+        # Stop the rotor
+        response.write_line("RPRT 0")
     elif command.upper()=='INIT':
         print("start init")
         stepper=SharedMemory.create_azi_stepper()
