@@ -140,7 +140,7 @@ class Stepper:
                 print("limit switch detected")
                 break
 
-            self.do_step(2)
+            self.do_step(1)
             steps_moved+=1
 
         self._pin_enabled.value(1)
@@ -178,7 +178,7 @@ class WebServer:
         s=socket.socket(socket.AF_INET,socket.SOCK_STREAM)
         s.setblocking(True)
         s.bind(('',80))
-        s.listen(5)
+        s.listen(1)
 
         while True:
             status_code="200 OK"
@@ -191,6 +191,16 @@ class WebServer:
                 f=conn.makefile('rwb', 0)
                 request=WebRequest(f)
 
+                #
+                response = html
+                conn.send("HTTP/1.1 %s\n" % status_code)
+                conn.send('Content-Type: text/json\n')
+                conn.send('Connection: close\n\n')
+                conn.sendall(response)
+                conn.close()
+                #
+
+
                 print("Before callback")
                 callback(request)
                 print("After callback")
@@ -201,15 +211,17 @@ class WebServer:
                 sys.print_exception(e)
 
 
-            try:
-                response = html
-                conn.send("HTTP/1.1 %s\n" % status_code)
-                conn.send('Content-Type: text/json\n')
-                conn.send('Connection: close\n\n')
-                conn.sendall(response)
-                conn.close()
-            except Exception as e:
-                sys.print_exception(e)
+            #try:
+            #    response = html
+            #    conn.send("HTTP/1.1 %s\n" % status_code)
+            #    conn.send('Content-Type: text/json\n')
+            #    conn.send('Connection: close\n\n')
+            #    conn.sendall(response)
+            #    conn.close()
+            #except Exception as e:
+            #    sys.print_exception(e)
+
+
 
 def move_stepper(request):
     print("*** begin of move_stepper ***")
@@ -217,7 +229,7 @@ def move_stepper(request):
     command=str(request.get_request_url().split("/")[3])
     print("request_url %s" % request.get_request_url())
 
-    if command.upper()=='ROTOR' or command.upper()=='AZI':
+    if command.upper()=='AZI':
         print("start moving azi")
         stepper=SharedMemory.create_azi_stepper()
         print("Current position in degrees (before move) %s:" % stepper.get_current_pos_deg())
