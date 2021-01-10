@@ -77,7 +77,8 @@ class Stepper:
         return self._current_pos_deg
 
     async def init(self):
-        self._pin_enabled.value(0)
+        #self._pin_enabled.value(0)
+        await self.activate()
 
         # move the axis backwards
         self.init_dir(-1)
@@ -86,6 +87,7 @@ class Stepper:
             await self.do_step(1)
             moved_deg+=self._step_size_deg
             if moved_deg >=360:
+                await self.deactivate()
                 return False
 
         # move the axis forewards
@@ -93,14 +95,21 @@ class Stepper:
         while self.is_limit_switch_pressed():
             await self.do_step(1)
 
-        for _ in range(0,10):
+        for _ in range(0,100):
             await self.do_step(1)
 
         print("Limit switch: %s" % self._pin_limit_switch.value())
-        self._pin_enabled.value(1)
+        #self._pin_enabled.value(1)
+        await self.deactivate()
         self._current_pos_deg=0
 
         return True
+
+    async def deactivate(self):
+        self._pin_enabled.value(1)
+
+    async def activate(self):
+        self._pin_enabled.value(0)
 
     async def do_step(self, wait_ms):
         self._pin_step.value(1)
