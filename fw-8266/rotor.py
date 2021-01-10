@@ -172,14 +172,15 @@ class WebRequest:
         return self._request_url
 
 class WebServer:
-    def __init__(self):
-        pass
+    def __init__(self, host, port):
+        self._host=host
+        self._port=int(port)
 
     async def run(self, callback):
         html='''{"status": "ok"}\n'''
         s=socket.socket(socket.AF_INET,socket.SOCK_STREAM)
         s.setblocking(True)
-        s.bind(('',80))
+        s.bind(('',self._port))
         s.listen(1)
 
         while True:
@@ -214,48 +215,60 @@ class WebServer:
             except Exception as e:
                 sys.print_exception(e)
 
+class BaseCommand:
+    def __init__(self, request_url):
+        self._request_url=request_url
 
+    def get_command(self):
+        return "DUMMY"
+
+    def get_arg_by_id(self):
+        return "DUMMY"
+
+class HTTPCommand(BaseCommand):
+    def __init__(self, request_url):
+        super().__init__(request_url)
+
+    def get_command(self):
+        return str(self._request_url.split("/")[3]).upper()
+
+    def get_arg_by_id(self, id):
+        return int(self._request_url.split("/")[id])
 
 async def move_stepper(request):
     print("*** begin of move_stepper ***")
-
-    command=str(request.get_request_url().split("/")[3])
+    cmd=HTTPCommand(request.get_request_url())
+    #command=str(request.get_request_url().split("/")[3])
     print("request_url %s" % request.get_request_url())
 
-    if command.upper()=='AZI':
+    if cmd.get_command()=='AZI':
         print("start moving azi")
         stepper=SharedMemory.create_azi_stepper()
         print("Current position in degrees (before move) %s:" % stepper.get_current_pos_deg())
-        target_pos_deg=int(request.get_request_url().split("/")[4])
+        #target_pos_deg=int(request.get_request_url().split("/")[4])
+        target_pos_deg=cmd.get_arg_by_id(4)
         print("target position in degrees: %s" % target_pos_deg)
         await stepper.move(target_pos_deg)
         print("Current position in degrees (after move) %s:" % stepper.get_current_pos_deg())
-    elif command.upper()=='INIT':
+    elif cmd.get_command()=='INIT':
         print("start init")
         stepper=SharedMemory.create_azi_stepper()
         print("Current position in degrees (before move) %s:" % stepper.get_current_pos_deg())
         await stepper.init()
         print("Current position in degrees (after move) %s:" % stepper.get_current_pos_deg())
+    elif cmd.get_command()=='AZI-POSITION':
+        pass
 
 
     print("*** end move_stepper ***")
 
 do_connect(cfg['wlan']['essid'], cfg['wlan']['password'])
-utime.sleep_ms(2000)
-#WebServer().run(move_stepper)
 
-
-#
-#
-#
 import uasyncio
-
 async def main(host, port):
     print("starting server ...")
-    server=WebServer()
+    server=WebServer(host, port)
     uasyncio.run(server.run(move_stepper))
-    #await uasyncio.sleep(1)
 
-uasyncio.run(main('0.0.0.0', 5000))
-print("after loop")
+uasyncio.run(main('', 80))
 
