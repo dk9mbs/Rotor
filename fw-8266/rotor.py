@@ -79,17 +79,28 @@ class Stepper:
     async def init(self):
         self._pin_enabled.value(0)
 
+        # move the axis backwards
         self.init_dir(-1)
+        moved_deg=0
         while not self.is_limit_switch_pressed():
             await self.do_step(1)
+            moved_deg+=self._step_size_deg
+            if moved_deg >=360:
+                return False
 
+        # move the axis forewards
         self.init_dir(1)
         while self.is_limit_switch_pressed():
+            await self.do_step(1)
+
+        for _ in range(0,10):
             await self.do_step(1)
 
         print("Limit switch: %s" % self._pin_limit_switch.value())
         self._pin_enabled.value(1)
         self._current_pos_deg=0
+
+        return True
 
     async def do_step(self, wait_ms):
         self._pin_step.value(1)
@@ -238,7 +249,6 @@ class HTTPCommand(BaseCommand):
 async def move_stepper(request):
     print("*** begin of move_stepper ***")
     cmd=HTTPCommand(request.get_request_url())
-    #command=str(request.get_request_url().split("/")[3])
     print("request_url %s" % request.get_request_url())
 
     if cmd.get_command()=='AZI':
@@ -254,11 +264,14 @@ async def move_stepper(request):
         print("start init")
         stepper=SharedMemory.create_azi_stepper()
         print("Current position in degrees (before move) %s:" % stepper.get_current_pos_deg())
-        await stepper.init()
+        result = await stepper.init()
+        if not result:
+            print("Error init stepper")
+            raise NameError('Error in init: no limit switch detected!')
+        
         print("Current position in degrees (after move) %s:" % stepper.get_current_pos_deg())
     elif cmd.get_command()=='AZI-POSITION':
         pass
-
 
     print("*** end move_stepper ***")
 
