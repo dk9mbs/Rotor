@@ -1,6 +1,8 @@
 import json
 import sys
 import network
+import machine
+import utime
 
 try:
     import usocket as socket
@@ -47,8 +49,7 @@ class SharedMemory:
 #
 # Stepper 8255 class
 #
-import machine
-import utime
+
 
 class Stepper:
     def __init__(self,**kwargs):
@@ -75,27 +76,50 @@ class Stepper:
     def get_current_pos_deg(self):
         return self._current_pos_deg
 
-    def init(self):
-        self._pin_enabled.value(0)
+    async def init(self, callback=None):
+        #self._pin_enabled.value(0)
+        await self.activate()
 
+        # move the axis backwards
         self.init_dir(-1)
+        moved_deg=0
         while not self.is_limit_switch_pressed():
-            self.do_step(1)
+            if not callback==None:
+                callback(".")
+            await self.do_step(1)
+            moved_deg+=self._step_size_deg
+            if moved_deg >=360:
+                await self.deactivate()
+                return False
 
+        # move the axis forewards
         self.init_dir(1)
         while self.is_limit_switch_pressed():
-            self.do_step(1)
+            await self.do_step(1)
+
+        for _ in range(0,100):
+            await self.do_step(1)
 
         print("Limit switch: %s" % self._pin_limit_switch.value())
-        self._pin_enabled.value(1)
+        #self._pin_enabled.value(1)
+        await self.deactivate()
         self._current_pos_deg=0
 
-    def do_step(self, wait_ms):
-        self._pin_step.value(1)
-        utime.sleep_ms(wait_ms)
-        self._pin_step.value(0)
-        utime.sleep_ms(wait_ms)
+        return True
 
+    async def deactivate(self):
+        self._pin_enabled.value(1)
+
+    async def activate(self):
+        self._pin_enabled.value(0)
+
+    async def do_step(self, wait_ms):
+        self._pin_step.value(1)
+        await uasyncio.sleep_ms(wait_ms)
+        #utime.sleep_ms(wait_ms)
+        self._pin_step.value(0)
+        await uasyncio.sleep_ms(wait_ms)
+        #utime.sleep_ms(wait_ms)
     #
     # set the direction by the factor:
     # 1=forward (for example: 270 -> 360)
@@ -119,7 +143,7 @@ class Stepper:
     #
     # Move the stepper to the target possition (deg)
     #
-    def move(self, pos_deg):
+    async def move(self, pos_deg):
         if self._current_pos_deg<pos_deg:
             factor=1
             self.init_dir(factor)
@@ -140,7 +164,7 @@ class Stepper:
                 print("limit switch detected")
                 break
 
-            self.do_step(1)
+            await self.do_step(0)
             steps_moved+=1
 
         self._pin_enabled.value(1)
@@ -169,15 +193,24 @@ class WebRequest:
     def get_request_url(self):
         return self._request_url
 
-class WebServer:
-    def __init__(self):
+class WebResponse:
+    def __init__(self, client):
+        self._client=client
         pass
+    
+    def print(self, text):
+        self._client.send(text)
+        
+class WebServer:
+    def __init__(self, host, port):
+        self._host=host
+        self._port=int(port)
 
-    def run(self, callback):
+    async def run(self, callback):
         html='''{"status": "ok"}\n'''
         s=socket.socket(socket.AF_INET,socket.SOCK_STREAM)
         s.setblocking(True)
-        s.bind(('',80))
+        s.bind(('',self._port))
         s.listen(1)
 
         while True:
@@ -190,64 +223,85 @@ class WebServer:
 
                 f=conn.makefile('rwb', 0)
                 request=WebRequest(f)
-
-                #
-                response = html
-                conn.send("HTTP/1.1 %s\n" % status_code)
-                conn.send('Content-Type: text/json\n')
-                conn.send('Connection: close\n\n')
-                conn.sendall(response)
-                conn.close()
-                #
-
-
+                response=WebResponse(conn)
+                
                 print("Before callback")
-                callback(request)
+                #callback(request)
+                task=uasyncio.create_task(callback(request, response))
+                await task
                 print("After callback")
-
 
             except Exception as e:
                 status_code="500 Error in callback"
                 sys.print_exception(e)
 
 
-            #try:
-            #    response = html
-            #    conn.send("HTTP/1.1 %s\n" % status_code)
-            #    conn.send('Content-Type: text/json\n')
-            #    conn.send('Connection: close\n\n')
-            #    conn.sendall(response)
-            #    conn.close()
-            #except Exception as e:
-            #    sys.print_exception(e)
+            try:
+                response = html
+                conn.send("HTTP/1.1 %s\n" % status_code)
+                conn.send('Content-Type: text/json\n')
+                conn.send('Connection: close\n\n')
+                conn.sendall(response)
+                conn.close()
+            except Exception as e:
+                sys.print_exception(e)
 
+class BaseCommand:
+    def __init__(self, request_url):
+        self._request_url=request_url
 
+    def get_command(self):
+        return "DUMMY"
 
-def move_stepper(request):
+    def get_arg_by_id(self):
+        return "DUMMY"
+
+class HTTPCommand(BaseCommand):
+    def __init__(self, request_url):
+        super().__init__(request_url)
+
+    def get_command(self):
+        return str(self._request_url.split("/")[3]).upper()
+
+    def get_arg_by_id(self, id):
+        return int(self._request_url.split("/")[id])
+
+async def move_stepper(request, response):
     print("*** begin of move_stepper ***")
-
-    command=str(request.get_request_url().split("/")[3])
+    cmd=HTTPCommand(request.get_request_url())
     print("request_url %s" % request.get_request_url())
 
-    if command.upper()=='AZI':
+    if cmd.get_command()=='AZI':
         print("start moving azi")
         stepper=SharedMemory.create_azi_stepper()
         print("Current position in degrees (before move) %s:" % stepper.get_current_pos_deg())
-        target_pos_deg=int(request.get_request_url().split("/")[4])
+        #target_pos_deg=int(request.get_request_url().split("/")[4])
+        target_pos_deg=cmd.get_arg_by_id(4)
         print("target position in degrees: %s" % target_pos_deg)
-        stepper.move(target_pos_deg)
+        await stepper.move(target_pos_deg)
         print("Current position in degrees (after move) %s:" % stepper.get_current_pos_deg())
-    elif command.upper()=='INIT':
+    elif cmd.get_command()=='INIT':
         print("start init")
         stepper=SharedMemory.create_azi_stepper()
         print("Current position in degrees (before move) %s:" % stepper.get_current_pos_deg())
-        stepper.init()
+        result = await stepper.init(lambda text: response.print(text))
+        if not result:
+            print("Error init stepper")
+            raise NameError('Error in init: no limit switch detected!')
+        
         print("Current position in degrees (after move) %s:" % stepper.get_current_pos_deg())
-
+    elif cmd.get_command()=='AZI-POSITION':
+        pass
 
     print("*** end move_stepper ***")
 
 do_connect(cfg['wlan']['essid'], cfg['wlan']['password'])
-WebServer().run(move_stepper)
 
+import uasyncio
+async def main(host, port):
+    print("starting server ...")
+    server=WebServer(host, port)
+    uasyncio.run(server.run(move_stepper))
+
+uasyncio.run(main('', 80))
 
