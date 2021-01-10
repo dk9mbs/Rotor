@@ -76,7 +76,7 @@ class Stepper:
     def get_current_pos_deg(self):
         return self._current_pos_deg
 
-    async def init(self):
+    async def init(self, callback=None):
         #self._pin_enabled.value(0)
         await self.activate()
 
@@ -84,6 +84,8 @@ class Stepper:
         self.init_dir(-1)
         moved_deg=0
         while not self.is_limit_switch_pressed():
+            if not callback==None:
+                callback(".")
             await self.do_step(1)
             moved_deg+=self._step_size_deg
             if moved_deg >=360:
@@ -191,6 +193,14 @@ class WebRequest:
     def get_request_url(self):
         return self._request_url
 
+class WebResponse:
+    def __init__(self, client):
+        self._client=client
+        pass
+    
+    def print(self, text):
+        self._client.send(text)
+        
 class WebServer:
     def __init__(self, host, port):
         self._host=host
@@ -213,10 +223,11 @@ class WebServer:
 
                 f=conn.makefile('rwb', 0)
                 request=WebRequest(f)
-
+                response=WebResponse(conn)
+                
                 print("Before callback")
                 #callback(request)
-                task=uasyncio.create_task(callback(request))
+                task=uasyncio.create_task(callback(request, response))
                 await task
                 print("After callback")
 
@@ -255,7 +266,7 @@ class HTTPCommand(BaseCommand):
     def get_arg_by_id(self, id):
         return int(self._request_url.split("/")[id])
 
-async def move_stepper(request):
+async def move_stepper(request, response):
     print("*** begin of move_stepper ***")
     cmd=HTTPCommand(request.get_request_url())
     print("request_url %s" % request.get_request_url())
@@ -273,7 +284,7 @@ async def move_stepper(request):
         print("start init")
         stepper=SharedMemory.create_azi_stepper()
         print("Current position in degrees (before move) %s:" % stepper.get_current_pos_deg())
-        result = await stepper.init()
+        result = await stepper.init(lambda text: response.print(text))
         if not result:
             print("Error init stepper")
             raise NameError('Error in init: no limit switch detected!')
