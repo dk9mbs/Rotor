@@ -224,7 +224,15 @@ class WebServer:
                 f=conn.makefile('rwb', 0)
                 request=WebRequest(f)
                 response=WebResponse(conn)
-                
+
+                response = html
+                conn.send("HTTP/1.1 %s\n" % status_code)
+                conn.send('Content-Type: text/json\n')
+                conn.send('Connection: close\n\n')
+                conn.sendall(response)
+                conn.close()
+
+
                 print("Before callback")
                 #callback(request)
                 task=uasyncio.create_task(callback(request, response))
@@ -236,15 +244,15 @@ class WebServer:
                 sys.print_exception(e)
 
 
-            try:
-                response = html
-                conn.send("HTTP/1.1 %s\n" % status_code)
-                conn.send('Content-Type: text/json\n')
-                conn.send('Connection: close\n\n')
-                conn.sendall(response)
-                conn.close()
-            except Exception as e:
-                sys.print_exception(e)
+            #try:
+            #    response = html
+            #    conn.send("HTTP/1.1 %s\n" % status_code)
+            #    conn.send('Content-Type: text/json\n')
+            #    conn.send('Connection: close\n\n')
+            #    conn.sendall(response)
+            #    conn.close()
+            #except Exception as e:
+            #    sys.print_exception(e)
 
 class BaseCommand:
     def __init__(self, request_url):
