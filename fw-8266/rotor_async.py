@@ -209,37 +209,50 @@ class WebServer:
     async def run(self, callback):
         html='''{"status": "ok"}\n'''
         s=socket.socket(socket.AF_INET,socket.SOCK_STREAM)
-        s.setblocking(True)
+        #s.setblocking(True)
         s.bind(('',self._port))
+        s.setblocking(False)
         s.listen(1)
 
         while True:
             status_code="200 OK"
+            import uselect
 
             try:
-                conn, addr = s.accept()
-                print('Got a connection from %s' % str(addr))
-                #request = conn.recv(1024)
+                poller = uselect.poll()
+                poller.register(s, uselect.POLLIN)
+                while 1:
+                    if 1==1:
+                        events = poller.poll(0) # same with ipoll, or with -1 or 100 args
+                        if not events==[]:
+                            print(events)
+                        conn, addr = s.accept()
 
-                f=conn.makefile('rwb', 0)
-                request=WebRequest(f)
-                response=WebResponse(conn)
+                        print('Got a connection from %s' % str(addr))
+                        #request = conn.recv(1024)
 
-                response = html
-                conn.send("HTTP/1.1 %s\n" % status_code)
-                conn.send('Content-Type: text/json\n')
-                conn.send('Connection: close\n\n')
-                conn.sendall(response)
-                conn.close()
+                        f=conn.makefile('rwb', 0)
+                        request=WebRequest(f)
+                        response=WebResponse(conn)
+                        #
+                        #
+                        response = html
+                        conn.send("HTTP/1.1 %s\n" % status_code)
+                        conn.send('Content-Type: text/json\n')
+                        conn.send('Connection: close\n\n')
+                        conn.sendall(response)
+                        conn.close()
+                        #
+                        #
 
-
-                print("Before callback")
-                #callback(request)
-                task=uasyncio.create_task(callback(request, response))
-                await task
-                print("After callback")
+                        print("Before callback")
+                        callback(request)
+                        #task=uasyncio.create_task(callback(request, response))
+                        #await task
+                        print("After callback")
 
             except Exception as e:
+                print("Error")
                 status_code="500 Error in callback"
                 sys.print_exception(e)
 
