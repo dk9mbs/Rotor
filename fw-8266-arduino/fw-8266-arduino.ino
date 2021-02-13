@@ -201,6 +201,11 @@ void rotorStepperStateMaschine(Rotor &rotor) {
 
   switch (state) {
     case START:
+      if (state!=lastEntryState){
+          lastEntryState=state;
+          Serial.println("Entry point START");
+      }
+
       if(newPos!=currentPos){
           Serial.println(newPos);
           Serial.println("Statemaschine is starting...");
@@ -221,7 +226,7 @@ void rotorStepperStateMaschine(Rotor &rotor) {
         rotor.setNewPos(rotor.getCurrentPos()-LIMIT_SWITCH_OFFSET);
         state=INITOFFSET;
       } else {
-        if (millis() > lastLoop + 10) {
+        if (millis() > lastLoop + 1) {
           doStep(FORWARD, rotor);
           lastLoop=millis();    
         }
@@ -229,18 +234,29 @@ void rotorStepperStateMaschine(Rotor &rotor) {
       break;
 
     case INITOFFSET:
+      if (state!=lastEntryState){
+          lastEntryState=state;
+          Serial.println("Entry point INITOFFSET");
+      }
+
       if(newPos==currentPos){
         disableStepper(rotor);
         state=INITZERO;
       } else {
-        if (millis() > lastLoop + 10) {
+        if (millis() > lastLoop + 1) {
           doStep(BACKWARD, rotor);
           lastLoop=millis();
         }
       }
       break;    
     case INITZERO:
-      enableStepper(rotor);
+      if (state!=lastEntryState){
+          enableStepper(rotor);
+          rotor.setMaxSteps(0);
+          lastEntryState=state;
+          Serial.println("Entry point INITZERO");
+      }
+      
       if(isLimitSwitchPressed(rotor)==true) {
         rotor.setCurrentPos(LIMIT_SWITCH_OFFSET*-1);
         rotor.setNewPos(0);
@@ -248,7 +264,7 @@ void rotorStepperStateMaschine(Rotor &rotor) {
         saveConfigValue("rotorsteps", (String)(rotor.getMaxSteps()-LIMIT_SWITCH_OFFSET));
         state=MOVING;
       } else {
-        if (millis() > lastLoop + 10) {
+        if (millis() > lastLoop + 1) {
           if(doStep(BACKWARD, rotor)==true){
             rotor.incrementMaxSteps();
           }
@@ -258,6 +274,11 @@ void rotorStepperStateMaschine(Rotor &rotor) {
       break;
 
     case MOVING:
+      if (state!=lastEntryState){
+          lastEntryState=state;
+          Serial.println("Entry point MOVING");
+      }
+    
       if(newPos==currentPos){
         clearLcdLine(lcd,1);
         printLcd(lcd, 0,1, "Pos:"+String(newPos),0); //col, row
@@ -346,6 +367,7 @@ int readMaxStepsFromSetup(){
 
   return tmp.toInt();
 }
+
 /*
    getCommandValue
    Return a part of a complete Stepper command.
