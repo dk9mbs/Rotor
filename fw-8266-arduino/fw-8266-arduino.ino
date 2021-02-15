@@ -21,10 +21,10 @@
 #define SW2PIN 2
 #define LIMIT_SWITCH_OFFSET 100
 
-#define DISPLAY_SCL 16   
-#define DISPLAY_SDA 0   
+#define DISPLAY_SCL 0   
+#define DISPLAY_SDA 16   
 
-enum {START, MOVING, INIT,INITOFFSET,INITZERO};
+enum {START, MOVING, INIT,INITOFFSET,INITZERO, HOME,HOMEOFFSET};
 enum {FORWARD, BACKWARD, STOPPED};
 
 
@@ -35,10 +35,16 @@ class Rotor {
     int _newPos;
     int _currentPos;
     int _maxSteps;
-    boolean _init;
-        
+    boolean _initRequest;
+    boolean _homeRequest;
+       
   public:
     Rotor();
+
+    boolean getInitRequest();
+    void setInitRequest(boolean value);
+    boolean getHomeRequest();
+    void setHomeRequest(boolean value);
     
     int getState();
     void setState(int value);
@@ -55,15 +61,13 @@ class Rotor {
     int getMaxSteps();
     void setMaxSteps(int value);
 
-    void setInit(boolean init);
-    boolean getInit();
 };
 Rotor::Rotor() {
   Rotor::_state=START;
   Rotor::_newPos=0;
   Rotor::_currentPos=0;
   Rotor::_maxSteps=0;
-  Rotor::_init=false;
+  Rotor::_initRequest=false;
 }
 int Rotor::getNewPos() {
   return Rotor::_newPos;
@@ -92,12 +96,20 @@ int Rotor::getMaxSteps() {
 void Rotor::setMaxSteps(int value){
   Rotor::_maxSteps=value;
 }
-void Rotor::setInit(boolean init) {
-  Rotor::_init=init;
+void Rotor::setInitRequest(boolean init) {
+  Rotor::_initRequest=init;
 }
-boolean Rotor::getInit() {
-  return Rotor::_init;
+boolean Rotor::getInitRequest() {
+  return Rotor::_initRequest;
 }
+
+void Rotor::setHomeRequest(boolean init) {
+  Rotor::_homeRequest=init;
+}
+boolean Rotor::getHomeRequest() {
+  return Rotor::_homeRequest;
+}
+
 
 int Rotor::getState() {
   return Rotor::_state;
@@ -117,10 +129,14 @@ boolean runSetup=false;
 
 void setup()
 {
+  delay(1000);
+  Wire.begin(16,0); //9 as SDA and 10 as SCL
   
   Serial.begin(115200);
   /* Start the display */
-  lcd.begin(DISPLAY_SDA, DISPLAY_SCL);
+  //lcd.begin(DISPLAY_SDA, DISPLAY_SCL);
+  lcd.begin();
+
   lcd.setCursor(0, 0); // Spalte, Zeile
   printLcd(lcd, 0,1, "booting ...",1);
   delay (1000);  
@@ -156,9 +172,11 @@ void setup()
 
     rotor.setMaxSteps(readMaxStepsFromSetup());
     if(rotor.getMaxSteps()==0){
-      rotor.setState(INIT);
+      Serial.println("No data for stepper found!");
+      rotor.setInitRequest(true);
     } else {
-      rotor.setState(INIT);
+      Serial.println("Move stepper to home position");
+      rotor.setHomeRequest(true);
     }
   } 
 }
@@ -188,7 +206,7 @@ void loop()
 void rotorStepperStateMaschine(Rotor &rotor) {
   //static int state=START;
   int state;
-  static int lastEntryState;
+  static int lastEntryState=-1;
   static unsigned long lastLoop=0;
 
   state=rotor.getState();
@@ -200,23 +218,46 @@ void rotorStepperStateMaschine(Rotor &rotor) {
   rotorDir=calculaterotorDirection(rotor);
 
   switch (state) {
+    case HOME:
+      if (state!=lastEntryState){
+        rotor.setHomeRequest(false);
+        enableStepper(rotor);
+        lastEntryState=state;
+        Serial.println("Entry point HOME");
+      }else if(isLimitSwitchPressed(rotor)==true) {
+        rotor.setCurrentPos(-LIMIT_SWITCH_OFFSET);
+        rotor.setNewPos(0);
+        disableStepper(rotor);
+        state=MOVING;
+      } else {
+        if (millis() > lastLoop + 1) {
+          doStep(BACKWARD, rotor);
+          lastLoop=millis();    
+        }
+      }      
+      break;
     case START:
       if (state!=lastEntryState){
           lastEntryState=state;
-          Serial.println("Entry point START");
-      }
 
-      if(newPos!=currentPos){
+          if(rotor.getHomeRequest()) state=HOME;
+          if(rotor.getInitRequest()) state=INIT;
+          Serial.println("TEST");
+          Serial.println("Entry point START");
+      } else if(newPos!=currentPos){
           Serial.println(newPos);
           Serial.println("Statemaschine is starting...");
           clearLcdLine(lcd,1);
           printLcd(lcd, 0,1, "moving:"+String(newPos),0); //col, row
           enableStepper(rotor);
           state=MOVING;
+      } else {
+        // no do actions in this state!!!
       }
       break;
     case INIT:
       if (state!=lastEntryState){
+        rotor.setInitRequest(false);
         enableStepper(rotor);
         lastEntryState=state;
         Serial.println("Entry point INIT");
@@ -241,6 +282,10 @@ void rotorStepperStateMaschine(Rotor &rotor) {
 
       if(newPos==currentPos){
         disableStepper(rotor);
+        //Serial.println("Steps required for 360 degree:"+(String)rotor.getMaxSteps());
+        //saveConfigValue("rotorsteps", (String)(rotor.getMaxSteps()-LIMIT_SWITCH_OFFSET));
+        //rotor.setCurrentPos(LIMIT_SWITCH_OFFSET*-1);
+        //rotor.setNewPos(0);
         state=INITZERO;
       } else {
         if (millis() > lastLoop + 1) {
@@ -275,8 +320,9 @@ void rotorStepperStateMaschine(Rotor &rotor) {
 
     case MOVING:
       if (state!=lastEntryState){
-          lastEntryState=state;
-          Serial.println("Entry point MOVING");
+        enableStepper(rotor);          
+        lastEntryState=state;
+        Serial.println("Entry point MOVING");
       }
     
       if(newPos==currentPos){
@@ -529,6 +575,9 @@ void setupIo() {
   pinMode(ROT_AZI_LIMIT_SWITCH,INPUT_PULLUP);
   pinMode(SW1PIN, INPUT);
   pinMode(SW2PIN, INPUT);
+  //pinMode(DISPLAY_SDA,OUTPUT);
+  //pinMode(DISPLAY_SCL,OUTPUT);
+  
 }
 
 void setupFileSystem() {
