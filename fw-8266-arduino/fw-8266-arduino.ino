@@ -16,9 +16,9 @@
 #define ROT_AZI_STEP 12
 #define ROT_AZI_DIR 13
 #define ROT_AZI_ENABLED 14
-#define ROT_AZI_LIMIT_SWITCH 5
+#define ROT_AZI_LIMIT_SWITCH 2
 #define SW1PIN 4
-#define SW2PIN 2
+#define SW2PIN 5
 #define LIMIT_SWITCH_OFFSET 100
 
 #define DISPLAY_SCL 0   
@@ -130,7 +130,7 @@ boolean runSetup=false;
 void setup()
 {
   delay(1000);
-  Wire.begin(16,0); //9 as SDA and 10 as SCL
+  //Wire.begin(16,0); //9 as SDA and 10 as SCL
   
   Serial.begin(115200);
   /* Start the display */
