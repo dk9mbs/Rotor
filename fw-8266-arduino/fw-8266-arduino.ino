@@ -195,7 +195,7 @@ void loop()
   }
 
   if(digitalRead(SW2PIN)==HIGH && millis() > lastSw2+500) {
-    Serial.println("SW2");
+    //Serial.println("SW2");
     lastSw2=millis();
   }
 
@@ -358,7 +358,7 @@ void disableStepper(Rotor &rotor) {
 }
 
 boolean isLimitSwitchPressed(Rotor &rotor) {
-  if(digitalRead(ROT_AZI_LIMIT_SWITCH)==HIGH) {
+  if(digitalRead(ROT_AZI_LIMIT_SWITCH)==LOW) {
     return true;
   } else {
     return false;
