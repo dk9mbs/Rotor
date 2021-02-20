@@ -61,6 +61,9 @@ class Rotor {
     int getMaxSteps();
     void setMaxSteps(int value);
 
+    int getCurrentPosDeg();
+    void setNewPosDeg(int deg);
+
 };
 Rotor::Rotor() {
   Rotor::_state=START;
@@ -118,6 +121,18 @@ void Rotor::setState(int value){
   Rotor::_state=value;
 }
 
+int Rotor::getCurrentPosDeg() {
+  float deg;
+  deg=((float)360/(float)Rotor::_maxSteps)*(float)Rotor::_currentPos;
+  return (int)deg;
+}
+
+void Rotor::setNewPosDeg(int deg) {
+  int steps;
+  steps=((float)Rotor::_maxSteps/(float)360)*(float)deg;
+  Rotor::_newPos=(int)steps;
+}
+
 WiFiClient espClient;
 ESP8266WebServer httpServer(80);
 HTTPClient http;
@@ -150,6 +165,7 @@ void setup()
   if(digitalRead(SW1PIN)==HIGH){
     runSetup=true;
   }
+  runSetup=false;
   
   Serial.print("Setup:");
   Serial.println(digitalRead(SW1PIN));
@@ -190,7 +206,7 @@ void loop()
   rotorStepperStateMaschine(rotor);
 
   if(digitalRead(SW1PIN)==HIGH && millis() > lastSw1+500) {
-    Serial.println("SW1");
+    //Serial.println("SW1");
     lastSw1=millis();
   }
 
@@ -201,14 +217,12 @@ void loop()
 
 }
 
-
-
 void rotorStepperStateMaschine(Rotor &rotor) {
-  //static int state=START;
   int state;
   static int lastEntryState=-1;
   static unsigned long lastLoop=0;
-
+  static unsigned long lastLcd=0;
+  
   state=rotor.getState();
   
   int newPos=rotor.getNewPos();
@@ -224,6 +238,8 @@ void rotorStepperStateMaschine(Rotor &rotor) {
         enableStepper(rotor);
         lastEntryState=state;
         Serial.println("Entry point HOME");
+        clearLcdLine(lcd,1);
+        printLcd(lcd, 0,1, "go home",0);
       }else if(isLimitSwitchPressed(rotor)==true) {
         rotor.setCurrentPos(-LIMIT_SWITCH_OFFSET);
         rotor.setNewPos(0);
@@ -242,13 +258,13 @@ void rotorStepperStateMaschine(Rotor &rotor) {
 
           if(rotor.getHomeRequest()) state=HOME;
           if(rotor.getInitRequest()) state=INIT;
-          Serial.println("TEST");
           Serial.println("Entry point START");
+          clearLcdLine(lcd,1);
+          printLcd(lcd, 0,1, "Pos:"+String(rotor.getCurrentPosDeg()),0); //col, row
+
       } else if(newPos!=currentPos){
           Serial.println(newPos);
           Serial.println("Statemaschine is starting...");
-          clearLcdLine(lcd,1);
-          printLcd(lcd, 0,1, "moving:"+String(newPos),0); //col, row
           enableStepper(rotor);
           state=MOVING;
       } else {
@@ -261,6 +277,8 @@ void rotorStepperStateMaschine(Rotor &rotor) {
         enableStepper(rotor);
         lastEntryState=state;
         Serial.println("Entry point INIT");
+        clearLcdLine(lcd,1);
+        printLcd(lcd, 0,1, "move to max",0);
       }
 
       if(isLimitSwitchPressed(rotor)==true) {
@@ -278,14 +296,12 @@ void rotorStepperStateMaschine(Rotor &rotor) {
       if (state!=lastEntryState){
           lastEntryState=state;
           Serial.println("Entry point INITOFFSET");
+          clearLcdLine(lcd,1);
+          printLcd(lcd, 0,1, "move to offset",0);
       }
 
       if(newPos==currentPos){
         disableStepper(rotor);
-        //Serial.println("Steps required for 360 degree:"+(String)rotor.getMaxSteps());
-        //saveConfigValue("rotorsteps", (String)(rotor.getMaxSteps()-LIMIT_SWITCH_OFFSET));
-        //rotor.setCurrentPos(LIMIT_SWITCH_OFFSET*-1);
-        //rotor.setNewPos(0);
         state=INITZERO;
       } else {
         if (millis() > lastLoop + 1) {
@@ -300,6 +316,8 @@ void rotorStepperStateMaschine(Rotor &rotor) {
           rotor.setMaxSteps(0);
           lastEntryState=state;
           Serial.println("Entry point INITZERO");
+          clearLcdLine(lcd,1);
+          printLcd(lcd, 0,1, "move home",0);
       }
       
       if(isLimitSwitchPressed(rotor)==true) {
@@ -323,11 +341,11 @@ void rotorStepperStateMaschine(Rotor &rotor) {
         enableStepper(rotor);          
         lastEntryState=state;
         Serial.println("Entry point MOVING");
+        clearLcdLine(lcd,1);
+        printLcd(lcd, 0,1, "moving...",0); 
       }
     
       if(newPos==currentPos){
-        clearLcdLine(lcd,1);
-        printLcd(lcd, 0,1, "Pos:"+String(newPos),0); //col, row
         disableStepper(rotor);
         state=START;
       } else {
@@ -335,6 +353,7 @@ void rotorStepperStateMaschine(Rotor &rotor) {
           doStep(rotorDir, rotor);
           lastLoop=millis();
         }
+
       }
       
       break;
@@ -371,6 +390,7 @@ boolean doStep(int rotorDir, Rotor &rotor) {
   
   if (rotorDir==BACKWARD) {
     dirPin=HIGH;
+    //dirPin=LOW;
   }
   
   digitalWrite(ROT_AZI_DIR, dirPin);
@@ -455,6 +475,7 @@ void setupHttpAdmin() {
 void handleHttpApi() {
   String cmd=httpServer.arg("command");
   String steps=httpServer.arg("steps");
+  String deg=httpServer.arg("deg");
   String line0=httpServer.arg("line0");
   String responseBody="api";
   
@@ -467,7 +488,8 @@ void handleHttpApi() {
       return;
       
     }
-    rotor.setNewPos(steps.toInt());
+    //rotor.setNewPos(steps.toInt());
+    rotor.setNewPosDeg(deg.toInt());
     Serial.println("New pos:"+((String)rotor.getNewPos()));
     Serial.println("Current pos:"+((String)rotor.getCurrentPos()));
   } else if (cmd=="GETCURRENTPOS") {
@@ -506,7 +528,7 @@ void handleHttpSetup() {
     "<html>"
     "<head>"
     "<meta name = \"viewport\" content = \"width = device-width, initial-scale = 1.0, maximum-scale = 1.0, user-scalable=0\">"
-    "<title>DK9MBS/AG5ZL MagLoop Setup</title>"
+    "<title>DK9MBS/AG5ZL Rotor Setup</title>"
     "<style>"
     "\"body { background-color: #808080; font-family: Arial, Helvetica, Sans-Serif; Color: #000000; }\""
     "</style>"
@@ -668,7 +690,7 @@ void setupWifiSTA(const char* ssid, const char* password, const char* newMacStr)
   Serial.println(WiFi.gatewayIP());
 
   printLcd(lcd, 0,0, WiFi.localIP(),1);
-  printLcd(lcd, 0,1, "AG5ZL MagLoop",0);
+  printLcd(lcd, 0,1, "AG5ZL Rotor",0);
 
 }
 
@@ -690,7 +712,9 @@ void printLcd(LiquidCrystal_I2C& lcdDisplay,int column, int row, IPAddress text,
   lcdDisplay.print(text);
 } 
 void printLcd(LiquidCrystal_I2C& lcdDisplay,int column, int row, String text, int clear) {
-  if(clear==1) lcdDisplay.clear();
+  if(clear==1) {
+    lcdDisplay.clear();
+  }
   
   lcdDisplay.setCursor(column, row); // Spalte, Zeile
   lcdDisplay.print(text);
