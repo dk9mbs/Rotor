@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created by diasvg.py -->
+<svg width="54.100cm" height="34.100cm" viewBox="6.950 -8.050 54.100 34.100"
+ xmlns="http://www.w3.org/2000/svg"
+ xmlns:xlink="http://www.w3.org/1999/xlink">
+<!-- Layer: Hintergrund -->
+<g id="Hintergrund">
+<!-- UML - LargePackage -->
+<rect x="7.000" y="-7.000" width="54.000" height="33.000" fill="#FFFFFF" stroke="#000000" stroke-width="0.100" />
+<rect x="7.000" y="-8.000" width="2.125" height="1.000" fill="#FFFFFF" stroke="#000000" stroke-width="0.100" />
+<text x="7.100" y="-7.300"  fill="#000000" text-anchor="start" font-size="0.80" font-family="monospace" font-style="normal" font-weight="400">
+Rotor</text>
+<!-- UML - State -->
+<rect x="17.000" y="7.100" width="4.000" height="1.800" fill="#FFFFFF" stroke="#000000" stroke-width="0.100"  rx="0.500" />
+<text x="19.000" y="8.195"  fill="#000000" text-anchor="middle" font-size="0.80" font-family="sans" font-style="normal" font-weight="400">
+START</text>
+<!-- UML - State Term -->
+<ellipse cx="13.000" cy="9.900" rx="0.500" ry="0.500" fill="#000000" stroke="none"  stroke-width="0.100" />
+<!-- UML - Transition -->
+<polyline fill="none" stroke="#000000" stroke-width="0.100"  points="13.550,9.900 15.275,9.900 15.275,8.000 16.776,8.000 "/>
+<polyline fill="none" stroke="#000000" stroke-width="0.100"  points="16.388,8.250 16.888,8.000 16.388,7.750 "/>
+<!-- UML - Transition -->
+<polyline fill="none" stroke="#000000" stroke-width="0.100"  points="21.000,7.100 22.105,7.100 22.105,7.100 35.728,7.100 "/>
+<polyline fill="none" stroke="#000000" stroke-width="0.100"  points="35.339,7.350 35.839,7.100 35.339,6.850 "/>
+<text x="27.000" y="7.050"  fill="#000000" text-anchor="middle" font-size="0.80" font-family="sans" font-style="normal" font-weight="400">
+[NewPos()!=CurrentPos()]</text>
+<!-- UML - State -->
+<rect x="14.550" y="13.950" width="8.850" height="3.400" fill="#FFFFFF" stroke="#000000" stroke-width="0.100"  rx="0.500" />
+<text x="18.975" y="15.045"  fill="#000000" text-anchor="middle" font-size="0.80" font-family="sans" font-style="normal" font-weight="400">
+INIT</text>
+<text x="15.050" y="15.845"  fill="#000000" text-anchor="start" font-size="0.80" font-family="sans" font-style="normal" font-weight="400">
+entry/ Motor einschalten</text>
+<text x="15.050" y="16.645"  fill="#000000" text-anchor="start" font-size="0.80" font-family="sans" font-style="normal" font-weight="400">
+do/ vorwärts drehen</text>
+<line x1="14.550" y1="15.250" x2="23.400" y2="15.250" stroke="#000000" stroke-width="0.100" />
+<!-- UML - Transition -->
+<polyline fill="none" stroke="#000000" stroke-width="0.100"  points="19.000,8.900 19.000,11.425 18.975,11.425 18.975,13.726 "/>
+<polyline fill="none" stroke="#000000" stroke-width="0.100"  points="18.725,13.338 18.975,13.838 19.225,13.338 "/>
+<text x="17.000" y="12.325"  fill="#000000" text-anchor="middle" font-size="0.80" font-family="sans" font-style="normal" font-weight="400">
+initRequest()</text>
+<!-- UML - State -->
+<rect x="36.000" y="5.000" width="14.840" height="4.200" fill="#FFFFFF" stroke="#000000" stroke-width="0.100"  rx="0.500" />
+<text x="43.420" y="6.095"  fill="#000000" text-anchor="middle" font-size="0.80" font-family="sans" font-style="normal" font-weight="400">
+MOVING</text>
+<text x="36.500" y="6.895"  fill="#000000" text-anchor="start" font-size="0.80" font-family="sans" font-style="normal" font-weight="400">
+entry/ Motor an</text>
+<text x="36.500" y="7.695"  fill="#000000" text-anchor="start" font-size="0.80" font-family="sans" font-style="normal" font-weight="400">
+do/ Motor drehen um angeforderte Schritte</text>
+<text x="36.500" y="8.495"  fill="#000000" text-anchor="start" font-size="0.80" font-family="sans" font-style="normal" font-weight="400">
+exit/ Motor ausschalten</text>
+<line x1="36.000" y1="6.300" x2="50.840" y2="6.300" stroke="#000000" stroke-width="0.100" />
+<!-- UML - State -->
+<rect x="21.400" y="-4.100" width="16.247" height="4.200" fill="#FFFFFF" stroke="#000000" stroke-width="0.100"  rx="0.500" />
+<text x="29.524" y="-3.005"  fill="#000000" text-anchor="middle" font-size="0.80" font-family="sans" font-style="normal" font-weight="400">
+HOME</text>
+<text x="21.900" y="-2.205"  fill="#000000" text-anchor="start" font-size="0.80" font-family="sans" font-style="normal" font-weight="400">
+entry/ Motor an</text>
+<text x="21.900" y="-1.405"  fill="#000000" text-anchor="start" font-size="0.80" font-family="sans" font-style="normal" font-weight="400">
+do/ rückwärts drehen</text>
+<text x="21.900" y="-0.605"  fill="#000000" text-anchor="start" font-size="0.80" font-family="sans" font-style="normal" font-weight="400">
+exit/ 100 Schritte vorwärts anfordern Motor aus</text>
+<line x1="21.400" y1="-2.800" x2="37.647" y2="-2.800" stroke="#000000" stroke-width="0.100" />
+<!-- UML - State -->
+<rect x="14.700" y="21.000" width="8.475" height="2.600" fill="#FFFFFF" stroke="#000000" stroke-width="0.100"  rx="0.500" />
+<text x="18.937" y="22.095"  fill="#000000" text-anchor="middle" font-size="0.80" font-family="sans" font-style="normal" font-weight="400">
+INITOFFSET</text>
+<text x="15.200" y="22.895"  fill="#000000" text-anchor="start" font-size="0.80" font-family="sans" font-style="normal" font-weight="400">
+do/ 100 Schritte zurück</text>
+<line x1="14.700" y1="22.300" x2="23.175" y2="22.300" stroke="#000000" stroke-width="0.100" />
+<!-- UML - State -->
+<rect x="42.000" y="20.600" width="14.805" height="3.400" fill="#FFFFFF" stroke="#000000" stroke-width="0.100"  rx="0.500" />
+<text x="49.403" y="21.695"  fill="#000000" text-anchor="middle" font-size="0.80" font-family="sans" font-style="normal" font-weight="400">
+INITZERO</text>
+<text x="42.500" y="22.495"  fill="#000000" text-anchor="start" font-size="0.80" font-family="sans" font-style="normal" font-weight="400">
+do/ rückwärts</text>
+<text x="42.500" y="23.295"  fill="#000000" text-anchor="start" font-size="0.80" font-family="sans" font-style="normal" font-weight="400">
+exit/ requestOffsetSteps();saveMaxSteps();</text>
+<line x1="42.000" y1="21.900" x2="56.805" y2="21.900" stroke="#000000" stroke-width="0.100" />
+<!-- UML - Transition -->
+<polyline fill="none" stroke="#000000" stroke-width="0.100"  points="43.420,5.000 43.420,2.000 19.000,2.000 19.000,6.826 "/>
+<polyline fill="none" stroke="#000000" stroke-width="0.100"  points="18.750,6.438 19.000,6.938 19.250,6.438 "/>
+<text x="30.710" y="1.500"  fill="#000000" text-anchor="middle" font-size="0.80" font-family="sans" font-style="normal" font-weight="400">
+[NewPos()==CurrentPos()]</text>
+<!-- UML - Transition -->
+<polyline fill="none" stroke="#000000" stroke-width="0.100"  points="18.975,17.350 18.975,19.000 18.937,19.000 18.937,20.776 "/>
+<polyline fill="none" stroke="#000000" stroke-width="0.100"  points="18.687,20.388 18.937,20.888 19.187,20.388 "/>
+<text x="23.000" y="19.000"  fill="#000000" text-anchor="middle" font-size="0.80" font-family="sans" font-style="normal" font-weight="400">
+isLimitSwitchPressed()</text>
+<!-- UML - Transition -->
+<polyline fill="none" stroke="#000000" stroke-width="0.100"  points="23.175,22.300 32.562,22.300 32.562,22.300 41.726,22.300 "/>
+<polyline fill="none" stroke="#000000" stroke-width="0.100"  points="41.338,22.550 41.838,22.300 41.338,22.050 "/>
+<text x="32.750" y="23.000"  fill="#000000" text-anchor="middle" font-size="0.80" font-family="sans" font-style="normal" font-weight="400">
+[NewPos()==CurrentPos()]</text>
+<!-- UML - Transition -->
+<polyline fill="none" stroke="#000000" stroke-width="0.100"  points="49.403,20.600 49.403,15.000 43.420,15.000 43.420,9.424 "/>
+<polyline fill="none" stroke="#000000" stroke-width="0.100"  points="43.670,9.812 43.420,9.312 43.170,9.812 "/>
+<text x="45.000" y="16.000"  fill="#000000" text-anchor="middle" font-size="0.80" font-family="sans" font-style="normal" font-weight="400">
+[NewPos()!=CurrentPos()]</text>
+<!-- UML - Transition -->
+<polyline fill="none" stroke="#000000" stroke-width="0.100"  points="37.647,-2.000 50.840,-2.000 50.840,4.776 "/>
+<polyline fill="none" stroke="#000000" stroke-width="0.100"  points="50.590,4.388 50.840,4.888 51.090,4.388 "/>
+<text x="43.000" y="-3.000"  fill="#000000" text-anchor="middle" font-size="0.80" font-family="sans" font-style="normal" font-weight="400">
+isLimitSwitchPressed()</text>
+<!-- UML - Transition -->
+<polyline fill="none" stroke="#000000" stroke-width="0.100"  points="17.000,7.100 17.000,-2.000 21.176,-2.000 "/>
+<polyline fill="none" stroke="#000000" stroke-width="0.100"  points="20.788,-1.750 21.288,-2.000 20.788,-2.250 "/>
+<text x="16.000" y="1.050"  fill="#000000" text-anchor="middle" font-size="0.80" font-family="sans" font-style="normal" font-weight="400">
+[true]</text>
+<text x="16.000" y="0.050"  fill="#000000" text-anchor="middle" font-size="0.80" font-family="sans" font-style="normal" font-weight="400">
+homeRequest</text>
+</g>
+</svg>
