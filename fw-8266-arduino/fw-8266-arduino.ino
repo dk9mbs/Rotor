@@ -144,21 +144,13 @@ boolean runSetup=false;
 
 void setup()
 {
-  delay(1000);
-  //Wire.begin(16,0); //9 as SDA and 10 as SCL
-  
   Serial.begin(115200);
-  /* Start the display */
   //lcd.begin(DISPLAY_SDA, DISPLAY_SCL);
   lcd.begin();
 
-  lcd.setCursor(0, 0); // Spalte, Zeile
   printLcd(lcd, 0,1, "booting ...",1);
   delay (1000);  
   
-  printLcd(lcd, 0,1, "init stepper ...",1);
-  delay (1000);  
-
   setupIo();
   setupFileSystem();
 
@@ -181,7 +173,12 @@ void setup()
     setupHttpAdmin();
   } else {
     setupHttpAdmin();
-    setupWifiSTA(readConfigValue("ssid").c_str(), readConfigValue("password").c_str(), readConfigValue("mac").c_str());
+    if (!setupWifiSTA(readConfigValue("ssid").c_str(), readConfigValue("password").c_str(), readConfigValue("mac").c_str())) {
+      // Fallback start the AP mode!
+      printLcd(lcd, 0,0, "No WLAN! AP mode",0);
+      setupWifiAP();
+      delay(2500);
+    }
 
     Serial.println("Waiting for commands over http...");
     delay(1000);
@@ -636,19 +633,25 @@ void setupWifiAP(){
   Serial.println(pwd);
   
   WiFi.mode(WIFI_AP);
-  WiFi.softAP("sensor.iot.dk9mbs.de", pwd);
+  WiFi.softAP("rotor.dk9mbs.de", pwd);
 
   Serial.println("AP started");
   
-  printLcd(lcd, 0,0, "WLAN Password",1);
+  printLcd(lcd, 0,0, "AP Password",1);
   printLcd(lcd, 0,1, pwd,0);
 
 }
 
-void setupWifiSTA(const char* ssid, const char* password, const char* newMacStr) {
+boolean setupWifiSTA(const char* ssid, const char* password, const char* newMacStr) {
+  int timeoutCounter=0;
+  int timeout=20;
+  
   uint8_t mac[6];
   byte newMac[6];
   parseBytes(newMacStr, '-', newMac, 6, 16);
+
+  clearLcdLine(lcd,0);
+  printLcd(lcd, 0,0, "Connecting WLAN",0);
 
   WiFi.setAutoReconnect(true);
 
@@ -675,6 +678,11 @@ void setupWifiSTA(const char* ssid, const char* password, const char* newMacStr)
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
     Serial.print(".");
+    timeoutCounter++;
+    clearLcdLine(lcd,1);
+    printLcd(lcd, 0,1, String(timeoutCounter)+"/"+String(timeout),0);
+    if (timeoutCounter>timeout) return false;
+    
   }
 
   WiFi.macAddress(mac);
@@ -692,6 +700,7 @@ void setupWifiSTA(const char* ssid, const char* password, const char* newMacStr)
   printLcd(lcd, 0,0, WiFi.localIP(),1);
   printLcd(lcd, 0,1, "AG5ZL Rotor",0);
 
+  return true;
 }
 
 /*
