@@ -9,7 +9,6 @@
 #include <FS.h>
 #include <ESP8266WebServer.h>
 #include <ESP8266HTTPClient.h>
-#include <Wire.h>
 #include <LiquidCrystal_I2C.h>
 #include "config.h"
 
@@ -21,13 +20,8 @@
 #define SW2PIN 5
 #define LIMIT_SWITCH_OFFSET 100
 
-#define DISPLAY_SCL 0   
-#define DISPLAY_SDA 16   
-
 enum {START, MOVING, INIT,INITOFFSET,INITZERO, HOME,HOMEOFFSET};
 enum {FORWARD, BACKWARD, STOPPED};
-
-
 
 class Rotor {
   private:
@@ -138,35 +132,30 @@ ESP8266WebServer httpServer(80);
 HTTPClient http;
 LiquidCrystal_I2C lcd(0x27, 16, 2);
 Rotor rotor;
-
 boolean runSetup=false;
 
 
 void setup()
 {
   Serial.begin(115200);
-  //lcd.begin(DISPLAY_SDA, DISPLAY_SCL);
   lcd.begin();
 
-  printLcd(lcd, 0,1, "booting ...",1);
-  delay (1000);  
+  disableStepper(rotor);
+  printLcd(lcd, 0,1, "init",1);
   
   setupIo();
+  printLcd(lcd, 5,1, ".",0);
   setupFileSystem();
+  printLcd(lcd, 6,1, ".",0);
 
-  if(digitalRead(SW1PIN)==HIGH){
-    runSetup=true;
-  }
-  runSetup=false;
-  
   Serial.print("Setup:");
   Serial.println(digitalRead(SW1PIN));
   Serial.print("adminpwd: ");
   Serial.println(readConfigValue("adminpwd"));
   Serial.print("Steps for 360 degree: ");
   Serial.println(readConfigValue("rotorsteps"));
-  
-  disableStepper(rotor);
+  printLcd(lcd, 7,1, ".",0);
+  delay (1000);  
 
   if(runSetup) {
     setupWifiAP();
@@ -257,7 +246,7 @@ void rotorStepperStateMaschine(Rotor &rotor) {
           if(rotor.getInitRequest()) state=INIT;
           Serial.println("Entry point START");
           clearLcdLine(lcd,1);
-          printLcd(lcd, 0,1, "Pos:"+String(rotor.getCurrentPosDeg()),0); //col, row
+          printLcd(lcd, 0,1, "Pos:"+String(rotor.getCurrentPosDeg())+"\337",0); //col, row
 
       } else if(newPos!=currentPos){
           Serial.println(newPos);
@@ -525,13 +514,13 @@ void handleHttpSetup() {
     "<html>"
     "<head>"
     "<meta name = \"viewport\" content = \"width = device-width, initial-scale = 1.0, maximum-scale = 1.0, user-scalable=0\">"
-    "<title>DK9MBS/AG5ZL Rotor Setup</title>"
+    "<title>DK9MBS-ROTOR-OS</title>"
     "<style>"
     "\"body { background-color: #808080; font-family: Arial, Helvetica, Sans-Serif; Color: #000000; }\""
     "</style>"
     "</head>"
     "<body>"
-    "<h1>Setup shell by dk9mbs</h1>"
+    "<h1>DK9MBS-Rotor-OS Setup</h1>"
     "<FORM action=\"/\" method=\"post\">"
     "<P>Wlan:"
     "<INPUT type=\"hidden\" name=\"CMD\" value=\"SAVE\"><BR>"
@@ -637,7 +626,7 @@ void setupWifiAP(){
 
   Serial.println("AP started");
   
-  printLcd(lcd, 0,0, "AP Password",1);
+  printLcd(lcd, 0,0, WiFi.softAPIP(),1);
   printLcd(lcd, 0,1, pwd,0);
 
 }
